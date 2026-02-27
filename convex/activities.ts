@@ -31,7 +31,7 @@ export const organizeActivity = mutation({
     activityDocId: v.id("activities"),
     goalId: v.optional(v.string()),
     incup: v.string(),
-    lifeArea: v.union(v.literal("health"),v.literal("wealth"),v.literal("relationships"),v.literal("self"),v.literal("career"),v.literal("fun"),v.literal("environment"),v.literal("spirituality")),
+    lifeArea: v.union(v.literal("spiritual"),v.literal("physical"),v.literal("mental"),v.literal("financial"),v.literal("social"),v.literal("emotional")),
     horizon: v.union(v.literal("today"),v.literal("week"),v.literal("month"),v.literal("quarter"),v.literal("annum"),v.literal("someday")),
     exeType: v.union(v.literal("task"),v.literal("project"),v.literal("habit")),
     category: v.union(v.literal("main-quest"),v.literal("side-quest"),v.literal("fake-boss"),v.literal("sleeping-dragon"),v.literal("void-filler")),
