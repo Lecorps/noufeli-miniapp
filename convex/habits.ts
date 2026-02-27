@@ -9,7 +9,7 @@ import * as xp from "./lib/xp";
 export const createHabit = mutation({
   args: {
     userId: v.id("users"), name: v.string(),
-    lifeArea: v.union(v.literal("health"),v.literal("wealth"),v.literal("relationships"),v.literal("self"),v.literal("career"),v.literal("fun"),v.literal("environment"),v.literal("spirituality")),
+    lifeArea: v.union(v.literal("spiritual"),v.literal("physical"),v.literal("mental"),v.literal("financial"),v.literal("social"),v.literal("emotional")),
     incup: v.optional(v.string()),
     easy: v.optional(v.string()), medium: v.optional(v.string()),
     hard: v.optional(v.string()), peak: v.optional(v.string()),
