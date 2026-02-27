@@ -31,14 +31,12 @@ export const createGoalsFromGapAnalysis = mutation({
         title: v.string(),
         description: v.optional(v.string()),
         lifeArea: v.union(
-          v.literal("health"),
-          v.literal("wealth"),
-          v.literal("relationships"),
-          v.literal("self"),
-          v.literal("career"),
-          v.literal("fun"),
-          v.literal("environment"),
-          v.literal("spirituality"),
+          v.literal("spiritual"),
+          v.literal("physical"),
+          v.literal("mental"),
+          v.literal("financial"),
+          v.literal("social"),
+          v.literal("emotional"),
         ),
         horizon: v.union(
           v.literal("today"),
@@ -95,9 +93,8 @@ export const createGoal = mutation({
     title: v.string(),
     description: v.optional(v.string()),
     lifeArea: v.union(
-      v.literal("health"), v.literal("wealth"), v.literal("relationships"),
-      v.literal("self"), v.literal("career"), v.literal("fun"),
-      v.literal("environment"), v.literal("spirituality"),
+      v.literal("spiritual"), v.literal("physical"), v.literal("mental"),
+      v.literal("financial"), v.literal("social"), v.literal("emotional"),
     ),
     horizon: v.union(
       v.literal("today"), v.literal("week"), v.literal("month"),
