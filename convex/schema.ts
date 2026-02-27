@@ -5,14 +5,12 @@ import { v } from "convex/values";
 
 // Life areas mirrored from the Google Sheets system
 const LIFE_AREA = v.union(
-  v.literal("health"),
-  v.literal("wealth"),
-  v.literal("relationships"),
-  v.literal("self"),
-  v.literal("career"),
-  v.literal("fun"),
-  v.literal("environment"),
-  v.literal("spirituality")
+  v.literal("spiritual"),
+  v.literal("physical"),
+  v.literal("mental"),
+  v.literal("financial"),
+  v.literal("social"),
+  v.literal("emotional")
 );
 
 // Goal time horizon
@@ -94,6 +92,10 @@ export default defineSchema({
       timezone: v.optional(v.string()),
       // When the user last ran an organize session (epoch ms)
       lastOrganizedAt: v.optional(v.number()),
+      // Telegram chat ID (stored so triggers know where to send messages)
+      chatId: v.optional(v.string()),
+      // JSON-stringified bot conversation state (flow, step, queue, etc.)
+      botState: v.optional(v.string()),
     }),
     // Running XP totals for the user
     totalXp: v.number(),
