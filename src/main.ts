@@ -490,7 +490,7 @@ function renderBreakdownModal(task: TaskRow): HTMLElement {
     if (subtasks.length === 0) return;
     const result = await api.breakdownTask(task.activityId, userId, subtasks);
     closeModal();
-    tg?.WebApp?.showAlert?.(`Created ${result.createdIds.length} subtasks!`);
+    tg?.showAlert?.(`Created ${result.createdIds.length} subtasks!`);
     loadTabData('do');
   });
   div.appendChild(btn);
@@ -564,7 +564,7 @@ function renderHabitLogModal(habit: HabitRow): HTMLElement {
   logBtn.style.marginTop = '12px';
   logBtn.textContent = '✅ Log Completion';
   logBtn.addEventListener('click', async () => {
-    if (!selectedDiff) { tg?.WebApp?.showAlert?.('Please select a difficulty.'); return; }
+    if (!selectedDiff) { tg?.showAlert?.('Please select a difficulty.'); return; }
     const emotionB4    = (div.querySelector('#emotionB4')    as HTMLSelectElement).value;
     const emotionAfter = (div.querySelector('#emotionAfter') as HTMLSelectElement).value;
     const mentalBlock  = (div.querySelector('#mentalBlock')  as HTMLInputElement).value;

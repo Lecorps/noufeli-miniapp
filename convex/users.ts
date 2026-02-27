@@ -4,7 +4,7 @@
  * User management: upsert on first contact, update settings, read profile.
  */
 
-import { mutation, query } from "./_generated/server";
+import { mutation, query, type MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
 
 // ─── Mutations ──────────────────────────────────────────────────────────────────────
@@ -121,6 +121,84 @@ export const markOrganizeSessionDone = mutation({
       updatedAt: Date.now(),
     });
   },
+});
+
+type ResetArgs = { telegramId: string | number };
+
+async function resetUserDataInternal(ctx: MutationCtx, args: ResetArgs) {
+  const normalizedTelegramId = String(args.telegramId);
+
+  const user = await ctx.db
+    .query("users")
+    .withIndex("by_telegram_id", (q) =>
+      q.eq("telegramId", normalizedTelegramId),
+    )
+    .unique();
+
+  if (!user) {
+    throw new Error(`User not found: ${normalizedTelegramId}`);
+  }
+
+  const [activities, goals, habits, sessions] = await Promise.all([
+    ctx.db
+      .query("activities")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .collect(),
+    ctx.db
+      .query("goals")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .collect(),
+    ctx.db
+      .query("habits")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .collect(),
+    ctx.db
+      .query("sessions")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .collect(),
+  ]);
+
+  for (const row of sessions) await ctx.db.delete(row._id);
+  for (const row of activities) await ctx.db.delete(row._id);
+  for (const row of goals) await ctx.db.delete(row._id);
+  for (const row of habits) await ctx.db.delete(row._id);
+
+  await ctx.db.patch(user._id, {
+    settings: {},
+    totalXp: 0,
+    chrysolite: 0,
+    hp: 100,
+    updatedAt: Date.now(),
+  });
+
+  return {
+    ok: true,
+    deleted: {
+      sessions: sessions.length,
+      activities: activities.length,
+      goals: goals.length,
+      habits: habits.length,
+    },
+  };
+}
+
+/**
+ * resetUserData
+ * Wipes a user's runtime quest data so /reset can start them fresh.
+ * Accepts telegramId as string or number for Apps Script compatibility.
+ */
+export const resetUserData = mutation({
+  args: { telegramId: v.union(v.string(), v.number()) },
+  handler: async (ctx, args) => resetUserDataInternal(ctx, args),
+});
+
+/**
+ * resetUser
+ * Backward-compatible alias for bot integrations that call users:resetUser.
+ */
+export const resetUser = mutation({
+  args: { telegramId: v.union(v.string(), v.number()) },
+  handler: async (ctx, args) => resetUserDataInternal(ctx, args),
 });
 
 // ─── Queries ──────────────────────────────────────────────────────────────────────
