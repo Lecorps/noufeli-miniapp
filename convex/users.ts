@@ -69,6 +69,8 @@ export const setUserSettings = mutation({
     telegramId: v.string(),
     organizeIntervalMinutes: v.optional(v.number()),
     timezone: v.optional(v.string()),
+    chatId: v.optional(v.string()),
+    botState: v.optional(v.string()), // JSON-stringified conversation state
   },
   handler: async (ctx, args) => {
     const user = await ctx.db
@@ -86,6 +88,8 @@ export const setUserSettings = mutation({
         ? { organizeIntervalMinutes: args.organizeIntervalMinutes }
         : {}),
       ...(args.timezone !== undefined ? { timezone: args.timezone } : {}),
+      ...(args.chatId   !== undefined ? { chatId:   args.chatId   } : {}),
+      ...(args.botState !== undefined ? { botState: args.botState } : {}),
     };
 
     await ctx.db.patch(user._id, {
