@@ -1,13 +1,17 @@
 {
-  "name": "questbot-mini-app",
+  "name": "noufeli-miniapp",
   "version": "1.0.0",
   "private": true,
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "convex:dev": "convex dev",
+    "convex:deploy": "convex deploy"
   },
-  "dependencies": {},
+  "dependencies": {
+    "convex": "^1.17.4"
+  },
   "devDependencies": {
     "@types/node": "^20.0.0",
     "typescript": "^5.4.0",
