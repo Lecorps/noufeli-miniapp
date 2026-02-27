@@ -1,0 +1,193 @@
+/**
+ * telegram.js  –  Telegram Bot API wrappers
+ */
+
+
+var TG_API = 'https://api.telegram.org/bot';
+
+
+// ---------------------------------------------------------------------------
+// Low-level send helpers
+// ---------------------------------------------------------------------------
+
+
+function tgRequest(method, payload) {
+  const url = TG_API + getBotToken() + '/' + method;
+  const options = {
+    method: 'post',
+    contentType: 'application/json',
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  };
+  const res = UrlFetchApp.fetch(url, options);
+  return JSON.parse(res.getContentText());
+}
+
+
+function sendMessage(chatId, text, extra) {
+  const payload = Object.assign({ chat_id: chatId, text: text, parse_mode: 'HTML' }, extra || {});
+  return tgRequest('sendMessage', payload);
+}
+
+
+function editMessage(chatId, messageId, text, extra) {
+  const payload = Object.assign({ chat_id: chatId, message_id: messageId, text: text, parse_mode: 'HTML' }, extra || {});
+  return tgRequest('editMessageText', payload);
+}
+
+
+function answerCallbackQuery(callbackQueryId, text) {
+  return tgRequest('answerCallbackQuery', { callback_query_id: callbackQueryId, text: text || '' });
+}
+
+
+function sendWebAppButton(chatId, text, buttonText, webAppUrl) {
+  return sendMessage(chatId, text, {
+    reply_markup: {
+      inline_keyboard: [[
+        { text: buttonText, web_app: { url: webAppUrl } }
+      ]]
+    }
+  });
+}
+
+
+// ---------------------------------------------------------------------------
+// Inline keyboard builders
+// ---------------------------------------------------------------------------
+
+
+function inlineButtons(rows) {
+  // rows: array of arrays of { text, callback_data }
+  return { reply_markup: { inline_keyboard: rows } };
+}
+
+
+function replyKeyboard(rows, oneTime) {
+  return {
+    reply_markup: {
+      keyboard: rows,
+      one_time_keyboard: oneTime !== false,
+      resize_keyboard: true
+    }
+  };
+}
+
+
+// ---------------------------------------------------------------------------
+// Webhook setup (run this manually once)
+// ---------------------------------------------------------------------------
+
+
+function setWebhook() {
+  const url    = getWebAppUrl();
+  const secret = PropertiesService.getScriptProperties().getProperty('WEBHOOK_SECRET');
+
+
+  const payload = { url: url };
+
+
+  if (secret) {
+    // Tell Telegram to include this value in every webhook request's
+    // X-Telegram-Bot-Api-Secret-Token header so we can verify it in doPost().
+    payload.secret_token = secret;
+    Logger.log('Registering webhook WITH secret token.');
+  } else {
+    Logger.log('WARNING: WEBHOOK_SECRET not set. Registering webhook without secret token verification. ' +
+               'Add the WEBHOOK_SECRET Script Property and re-run setWebhook() to secure the endpoint.');
+  }
+
+
+  const result = tgRequest('setWebhook', payload);
+  Logger.log(JSON.stringify(result));
+}
+
+
+function deleteWebhook() {
+  const result = tgRequest('deleteWebhook', {});
+  Logger.log(JSON.stringify(result));
+}
+
+
+// ---------------------------------------------------------------------------
+// Main Telegram update router
+// ---------------------------------------------------------------------------
+
+
+function handleTelegramUpdate(update) {
+  if (update.message) {
+    routeMessage(update.message);
+  } else if (update.callback_query) {
+    routeCallbackQuery(update.callback_query);
+  }
+  return ContentService.createTextOutput('OK');
+}
+
+
+function routeMessage(msg) {
+  const chatId  = msg.chat.id;
+  const userId  = msg.from.id;
+  const text    = (msg.text || '').trim();
+
+
+  // Ensure user exists in Convex on every message so getState() always works.
+  // This is a fast no-op after the first call (ensureUser is an upsert).
+  try {
+    dbEnsureUser(String(userId), msg.from.first_name, msg.from.last_name, msg.from.username);
+  } catch(e) {
+    Logger.log('ensureUser error: ' + e);
+  }
+
+
+  // Forwarded message → Capture flow
+  if (msg.forward_date || msg.forward_from || msg.forward_origin) {
+    handleForwardedMessage(msg);
+    return;
+  }
+
+
+  // Commands
+  if (text.startsWith('/start'))    { handleStart(msg);    return; }
+  if (text.startsWith('/reset'))    { handleReset(msg);    return; }
+  if (text.startsWith('/do'))       { handleDoFlow(msg);   return; }
+  if (text.startsWith('/evaluate')) { handleEvaluateFlow(msg); return; }
+  if (text.startsWith('/habits'))   { handleHabitsMenu(msg); return; }
+  if (text.startsWith('/summary'))  { sendDailySummary(chatId, userId); return; }
+
+
+  // State-machine based conversation (organise wizard, goal setup, etc.)
+  handleConversationState(msg);
+}
+
+
+function routeCallbackQuery(cq) {
+  const chatId = cq.message.chat.id;
+  const userId = cq.from.id;
+  const data   = cq.data;
+
+
+  answerCallbackQuery(cq.id);
+
+
+  // Ensure user exists so getState() works in all handlers.
+  try {
+    dbEnsureUser(String(userId), cq.from.first_name, cq.from.last_name, cq.from.username);
+  } catch(e) {
+    Logger.log('ensureUser error in callback: ' + e);
+  }
+
+
+  if (data.startsWith('ORG_ORDER:'))    { handleOrganizeOrder(cq);   return; }
+  if (data.startsWith('ORG_GOAL:'))     { handleOrganizeGoal(cq);    return; }
+  if (data.startsWith('ORG_INCUP:'))    { handleOrganizeIncup(cq);   return; }
+  if (data.startsWith('ORG_AREA:'))     { handleOrganizeArea(cq);    return; }
+  if (data.startsWith('ORG_HORIZON:'))  { handleOrganizeHorizon(cq); return; }
+  if (data.startsWith('ORG_TYPE:'))     { handleOrganizeType(cq);    return; }
+  if (data.startsWith('ORG_CAT:'))      { handleOrganizeCategory(cq);return; }
+  if (data.startsWith('ORG_DONE'))      { handleOrganizeDone(cq);    return; }
+  if (data.startsWith('SETUP_GUIDE:'))  { handleSetupGuide(cq);      return; }
+  if (data.startsWith('HABIT_LOG:'))    { handleHabitLog(cq);        return; }
+  if (data.startsWith('HABIT_DIFF:'))   { handleHabitDiff(cq);       return; }
+  if (data === 'DO_FLOW')               { handleDoFlow({ chat: { id: chatId }, from: { id: userId } }); return; }
+  if (data === 'EVAL_FLOW')             { handleEvaluateFlow({ chat: { id: chatId }, from: { id: userId } }); return; }
+}

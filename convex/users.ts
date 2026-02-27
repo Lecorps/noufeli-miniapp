@@ -61,7 +61,7 @@ export const ensureUser = mutation({
 
 /**
  * setUserSettings
- * Saves organize interval and/or timezone from the /start onboarding flow.
+ * Saves organize interval, timezone, chatId, and/or botState from the bot.
  * Partial: only updates fields that are provided.
  */
 export const setUserSettings = mutation({
@@ -88,7 +88,7 @@ export const setUserSettings = mutation({
         ? { organizeIntervalMinutes: args.organizeIntervalMinutes }
         : {}),
       ...(args.timezone !== undefined ? { timezone: args.timezone } : {}),
-      ...(args.chatId   !== undefined ? { chatId:   args.chatId   } : {}),
+      ...(args.chatId !== undefined ? { chatId: args.chatId } : {}),
       ...(args.botState !== undefined ? { botState: args.botState } : {}),
     };
 
