@@ -9,15 +9,6 @@
  */
 
 import { dbEnsureUser } from './convex.js';
-import {
-  handleStart, handleReset, handleDoFlow, handleEvaluateFlow,
-  handleHabitsMenu, handleForwardedMessage, handleConversationState,
-  handleOrganizeOrder, handleOrganizeGoal, handleOrganizeIncup,
-  handleOrganizeArea, handleOrganizeHorizon, handleOrganizeType,
-  handleOrganizeCategory, handleOrganizeDone,
-  handleSetupGuide, handleHabitLog, handleHabitDiff,
-  sendDailySummary,
-} from './flows.js';
 
 const TG_API = 'https://api.telegram.org/bot';
 
@@ -172,3 +163,4 @@ async function routeCallbackQuery(cq) {
   if (data === 'DO_FLOW')   { await handleDoFlow({ chat: { id: chatId }, from: { id: userId } });   return; }
   if (data === 'EVAL_FLOW') { await handleEvaluateFlow({ chat: { id: chatId }, from: { id: userId } }); return; }
 }
+
