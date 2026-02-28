@@ -6,6 +6,16 @@
  *   BOT_TOKEN      – Telegram bot token
  *   WEBHOOK_SECRET – Secret to verify incoming webhook requests
  *   MINI_APP_URL   – Hosted Mini App URL (used by handleDoFlow / handleEvaluateFlow)
+ *
+ * Dependency graph (no cycles):
+ *   index.js → telegram.js → flows.js → convex.js
+ *                          → convex.js
+ *
+ * flows.js imports send helpers (sendMessage etc.) from telegram.js.
+ * To avoid a circular import, the flow handler functions are NOT imported
+ * at the top level here. Instead, routeMessage and routeCallbackQuery use
+ * a dynamic import() which Node resolves after both modules are fully
+ * initialised, so all exports are defined by the time they're called.
  */
 
 import { dbEnsureUser } from './convex.js';
@@ -49,10 +59,6 @@ export async function sendWebAppButton(chatId, text, buttonText, webAppUrl) {
   });
 }
 
-// ---------------------------------------------------------------------------
-// Keyboard builders  (synchronous, no API call)
-// ---------------------------------------------------------------------------
-
 export function inlineButtons(rows) {
   return { reply_markup: { inline_keyboard: rows } };
 }
@@ -74,7 +80,7 @@ export function verifyWebhookSecret(req) {
 }
 
 // ---------------------------------------------------------------------------
-// Webhook registration helpers  (call once via admin route or setup script)
+// Webhook registration helpers
 // ---------------------------------------------------------------------------
 
 export async function setWebhook(webhookUrl) {
@@ -94,7 +100,7 @@ export async function deleteWebhook() {
 }
 
 // ---------------------------------------------------------------------------
-// Main update handler (call this from your Express / Cloud Run route)
+// Main update handler
 // ---------------------------------------------------------------------------
 
 export async function handleTelegramUpdate(update) {
@@ -110,29 +116,28 @@ async function routeMessage(msg) {
   const userId = msg.from.id;
   const text   = (msg.text || '').trim();
 
-  // Ensure user exists in Convex on every message so getState() always works.
+  // Dynamic import resolves after both modules are fully initialised,
+  // so flows.js exports are guaranteed to be defined by this point.
+  const flows = await import('./flows.js');
+
   try {
     await dbEnsureUser(String(userId), msg.from.first_name, msg.from.last_name, msg.from.username);
   } catch (e) {
     console.error('ensureUser error:', e);
   }
 
-  // Forwarded message → Capture flow
   if (msg.forward_date || msg.forward_from || msg.forward_origin) {
-    await handleForwardedMessage(msg);
-    return;
+    await flows.handleForwardedMessage(msg); return;
   }
 
-  // Commands
-  if (text.startsWith('/start'))    { await handleStart(msg);                               return; }
-  if (text.startsWith('/reset'))    { await handleReset(msg);                               return; }
-  if (text.startsWith('/do'))       { await handleDoFlow(msg);                              return; }
-  if (text.startsWith('/evaluate')) { await handleEvaluateFlow(msg);                        return; }
-  if (text.startsWith('/habits'))   { await handleHabitsMenu(msg);                          return; }
-  if (text.startsWith('/summary'))  { await sendDailySummary(chatId, userId);               return; }
+  if (text.startsWith('/start'))    { await flows.handleStart(msg);                        return; }
+  if (text.startsWith('/reset'))    { await flows.handleReset(msg);                        return; }
+  if (text.startsWith('/do'))       { await flows.handleDoFlow(msg);                       return; }
+  if (text.startsWith('/evaluate')) { await flows.handleEvaluateFlow(msg);                 return; }
+  if (text.startsWith('/habits'))   { await flows.handleHabitsMenu(msg);                   return; }
+  if (text.startsWith('/summary'))  { await flows.sendDailySummary(chatId, userId);        return; }
 
-  // State-machine conversation
-  await handleConversationState(msg);
+  await flows.handleConversationState(msg);
 }
 
 async function routeCallbackQuery(cq) {
@@ -140,27 +145,27 @@ async function routeCallbackQuery(cq) {
   const userId = cq.from.id;
   const data   = cq.data;
 
+  const flows = await import('./flows.js');
+
   await answerCallbackQuery(cq.id);
 
-  // Ensure user exists so getState() works in all handlers.
   try {
     await dbEnsureUser(String(userId), cq.from.first_name, cq.from.last_name, cq.from.username);
   } catch (e) {
     console.error('ensureUser error in callback:', e);
   }
 
-  if (data.startsWith('ORG_ORDER:'))   { await handleOrganizeOrder(cq);    return; }
-  if (data.startsWith('ORG_GOAL:'))    { await handleOrganizeGoal(cq);     return; }
-  if (data.startsWith('ORG_INCUP:'))   { await handleOrganizeIncup(cq);    return; }
-  if (data.startsWith('ORG_AREA:'))    { await handleOrganizeArea(cq);     return; }
-  if (data.startsWith('ORG_HORIZON:')) { await handleOrganizeHorizon(cq);  return; }
-  if (data.startsWith('ORG_TYPE:'))    { await handleOrganizeType(cq);     return; }
-  if (data.startsWith('ORG_CAT:'))     { await handleOrganizeCategory(cq); return; }
-  if (data.startsWith('ORG_DONE'))     { await handleOrganizeDone(cq);     return; }
-  if (data.startsWith('SETUP_GUIDE:')) { await handleSetupGuide(cq);       return; }
-  if (data.startsWith('HABIT_LOG:'))   { await handleHabitLog(cq);         return; }
-  if (data.startsWith('HABIT_DIFF:'))  { await handleHabitDiff(cq);        return; }
-  if (data === 'DO_FLOW')   { await handleDoFlow({ chat: { id: chatId }, from: { id: userId } });   return; }
-  if (data === 'EVAL_FLOW') { await handleEvaluateFlow({ chat: { id: chatId }, from: { id: userId } }); return; }
+  if (data.startsWith('ORG_ORDER:'))   { await flows.handleOrganizeOrder(cq);    return; }
+  if (data.startsWith('ORG_GOAL:'))    { await flows.handleOrganizeGoal(cq);     return; }
+  if (data.startsWith('ORG_INCUP:'))   { await flows.handleOrganizeIncup(cq);    return; }
+  if (data.startsWith('ORG_AREA:'))    { await flows.handleOrganizeArea(cq);     return; }
+  if (data.startsWith('ORG_HORIZON:')) { await flows.handleOrganizeHorizon(cq);  return; }
+  if (data.startsWith('ORG_TYPE:'))    { await flows.handleOrganizeType(cq);     return; }
+  if (data.startsWith('ORG_CAT:'))     { await flows.handleOrganizeCategory(cq); return; }
+  if (data.startsWith('ORG_DONE'))     { await flows.handleOrganizeDone(cq);     return; }
+  if (data.startsWith('SETUP_GUIDE:')) { await flows.handleSetupGuide(cq);       return; }
+  if (data.startsWith('HABIT_LOG:'))   { await flows.handleHabitLog(cq);         return; }
+  if (data.startsWith('HABIT_DIFF:'))  { await flows.handleHabitDiff(cq);        return; }
+  if (data === 'DO_FLOW')   { await flows.handleDoFlow({ chat: { id: chatId }, from: { id: userId } });   return; }
+  if (data === 'EVAL_FLOW') { await flows.handleEvaluateFlow({ chat: { id: chatId }, from: { id: userId } }); return; }
 }
-
