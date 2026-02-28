@@ -15,13 +15,7 @@ export async function noufeliBot(req, res) {
     const update = req.body;
     console.log('Received update:', JSON.stringify(update));
     
-    const updateId = update.update_id;
-    const lastUpdateId = parseInt(process.env.LAST_UPDATE_ID || '0');
-
-    if (updateId <= lastUpdateId) {
-      console.log(`Skipping duplicate update: ${updateId}`);
-      return res.status(200).send('OK');
-    }
+    
 
     await processUpdate(update);
     
