@@ -22,7 +22,7 @@ const LIFE_AREA_LABELS = {
   financial: 'Financial 💰', social: 'Social 👥',     emotional: 'Emotional ❤️',
 };
 const HORIZONS      = ['today','week','month','quarter','annum','someday'];
-const INCUP_OPTIONS = ['Interesting','Novel','Challenging','Urgent','Pressure', 'Passion'];
+const INCUP_OPTIONS = ['Interesting','Novel','Challenging','Urgent','Pressure/Passion'];
 const CATEGORIES    = ['main-quest','side-quest','fake-boss','sleeping-dragon','void-filler'];
 const EXE_TYPES     = ['task','project','habit'];
 
@@ -354,7 +354,7 @@ async function handleOrganiseTextReply(chatId, telegramId, text, state) {
   await askOrganiseStep(chatId, telegramId, 'incup');
 }
 
-export async function handleOrganizeGoal(cq) {} // handled via text reply
+export async function handleOrganizeGoal(cq) {}
 
 export async function handleOrganizeIncup(cq) {
   const chatId     = cq.message.chat.id;
@@ -538,11 +538,11 @@ export async function handleEvaluateFlow(msg) {
 // ─── Habits ───────────────────────────────────────────────────────────────────
 
 export async function handleHabitsMenu(msg) {
-  const chatId     = msg.chat.id;
-  const telegramId = String(msg.from.id);
-  const state      = await getState(telegramId);
+  const chatId       = msg.chat.id;
+  const telegramId   = String(msg.from.id);
+  const state        = await getState(telegramId);
   const convexUserId = state.convexUserId || await dbEnsureUser(telegramId);
-  const habits     = await dbListHabits(convexUserId) || [];
+  const habits       = await dbListHabits(convexUserId) || [];
 
   if (habits.length === 0) {
     await sendMessage(chatId, '📿 No habits yet. Let\'s create one!\nSend me the habit name:');
@@ -584,13 +584,13 @@ async function handleHabitCreateReply(chatId, telegramId, text, state) {
 }
 
 export async function handleHabitLog(cq) {
-  const chatId     = cq.message.chat.id;
-  const telegramId = String(cq.from.id);
-  const habitDocId = cq.data.replace('HABIT_LOG:', '');
-  const state      = await getState(telegramId);
+  const chatId       = cq.message.chat.id;
+  const telegramId   = String(cq.from.id);
+  const habitDocId   = cq.data.replace('HABIT_LOG:', '');
+  const state        = await getState(telegramId);
   const convexUserId = state.convexUserId || await dbEnsureUser(telegramId);
-  const habits     = await dbListHabits(convexUserId) || [];
-  const habit      = habits.find(h => h._id === habitDocId);
+  const habits       = await dbListHabits(convexUserId) || [];
+  const habit        = habits.find(h => h._id === habitDocId);
   if (!habit) { await sendMessage(chatId, 'Habit not found.'); return; }
 
   const variants = [
@@ -605,9 +605,10 @@ export async function handleHabitLog(cq) {
 }
 
 export async function handleHabitDiff(cq) {
-  const chatId     = cq.message.chat.id;
-  const telegramId = String(cq.from.id);
-  const [, habitDocId, difficulty] = cq.data.split(':');
+  const chatId   = cq.message.chat.id;
+  const parts    = cq.data.split(':');
+  const habitDocId   = parts[1];
+  const difficulty   = parts[2];
   const result = await dbLogHabit(habitDocId, difficulty);
   await editMessage(chatId, cq.message.message_id,
     `✅ Logged! <b>+${result.habitXp} XP</b>  🔥 Streak: ${result.currentStreak}`
@@ -630,7 +631,7 @@ export async function sendDailySummary(chatId, telegramId) {
   );
 }
 
-// ─── Organise reminder (called by scheduler, e.g. Cloud Scheduler) ───────────
+// ─── Organise reminder trigger ────────────────────────────────────────────────
 
 export async function organiseReminderTrigger() {
   try {
@@ -641,7 +642,7 @@ export async function organiseReminderTrigger() {
         const { telegramId } = user;
         const chatId = user.settings?.chatId;
         if (!chatId) return;
-        if (!user.settings?.lastOrganizedAt) return; // still in onboarding
+        if (!user.settings?.lastOrganizedAt) return;
         const state = await dbGetState(telegramId);
         if (state?.flow) { console.log(`Skipping reminder for ${telegramId} – mid-conversation`); return; }
         await triggerOrganiseReminder(telegramId, chatId);
